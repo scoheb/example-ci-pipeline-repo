@@ -15,6 +15,12 @@ metadata:
     tags: jenkins
 objects:
 - apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: xci-jenkins
+    labels:
+      app: jenkins-persistent
+- apiVersion: v1
   kind: Route
   metadata:
     creationTimestamp: null
@@ -36,6 +42,35 @@ objects:
     resources:
       requests:
         storage: ${VOLUME_CAPACITY}
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      app: jenkins-persistent
+    name: jenkins
+  spec:
+    source:
+      contextDir: xCI-jenkins
+      git:
+        uri: https://gitlab.cee.redhat.com/Feuerkasten/xCI-systems.git
+        ref: stage
+      type: Git
+    output:
+      to:
+        kind: ImageStreamTag
+        name: xci-jenkins:latest
+    strategy:
+      type: Source
+      sourceStrategy:
+        forcePull: true
+        from:
+          kind: "DockerImage"
+          name: "docker.io/openshift/jenkins-2-centos7:v3.9"
+        env:
+          - name: GIT_SSL_NO_VERIFY
+            value: "true"
+    triggers:
+    - type: ConfigChange
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
@@ -150,41 +185,6 @@ objects:
       name: ${JENKINS_SERVICE_NAME}
     sessionAffinity: None
     type: ClusterIP
-- apiVersion: v1
-  kind: BuildConfig
-  metadata:
-    labels:
-      app: jenkins-persistent
-    name: jenkins
-  spec:
-    source:
-      contextDir: xCI-jenkins
-      git:
-        uri: https://gitlab.cee.redhat.com/Feuerkasten/xCI-systems.git
-        ref: stage
-      type: Git
-    output:
-      to:
-        kind: ImageStreamTag
-        name: xci-jenkins:latest
-    strategy:
-      type: Source
-      sourceStrategy:
-        forcePull: true
-        from:
-          kind: "DockerImage"
-          name: "docker.io/openshift/jenkins-2-centos7:v3.9"
-        env:
-          - name: GIT_SSL_NO_VERIFY
-            value: "true"
-    triggers:
-    - type: ConfigChange
-- apiVersion: v1
-  kind: ImageStream
-  metadata:
-    name: xci-jenkins
-    labels:
-      app: jenkins-persistent
 - apiVersion: v1
   kind: Service
   metadata:
