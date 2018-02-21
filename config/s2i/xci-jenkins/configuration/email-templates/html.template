@@ -1,0 +1,435 @@
+<STYLE>
+BODY, TABLE, TD, TH, P {
+  font-family:Verdana,Helvetica,sans serif;
+  font-size:11px;
+  color:black;
+}
+/*START of JOBS in BOX*/
+.bubble
+{
+display:inline-block;
+margin: 20px;
+position: relative;
+width: 95px;
+height: 60px;
+padding: 0px;
+background: #FEFFFF;
+-webkit-border-radius: 10px;
+-moz-border-radius: 10px;
+border-radius: 10px;
+border: #7FAEBA solid 4px;
+}
+.bubble:after
+{
+content: '';
+position: absolute;
+border-style: solid;
+border-width: 10px 0 10px 17px;
+border-color: transparent #FEFFFF;
+display: block;
+width: 0;
+z-index: 1;
+right: -17px;
+top: 20px;
+}
+.bubble:before
+{
+content: '';
+position: absolute;
+border-style: solid;
+border-width: 13px 0 13px 20px;
+border-color: transparent #7FAEBA;
+display: block;
+width: 0;
+z-index: 0;
+right: -24px;
+top: 17px;
+}
+h4 {text-align: center;}
+/*END of JOBS in BOX*/
+
+/*START Of Console show|hide*/
+input {display:none;}
+div#console {display:none;margin-left:30px;}
+input#show:checked ~ div#console {display:block;}
+input#hide:checked ~ div#console {display:none;}
+/*END Of Console show|hide*/
+h1 { color:black; }
+h2 { color:black; }
+h3 { color:black; }
+TD.bg1 { color:white; background-color:#5179B5; font-size:120% }
+TD.bg2 { color:white; background-color:#DEDEDF; font-size:110% }
+TD.bg3 { color:white; background-color:#8080FF; }
+TD.test_passed { color:blue; }
+TD.test_failed { color:red; }
+TD.console { font-family:Courier New; }
+
+dl
+{
+width: 98%;
+background: #fff;
+border: 1px solid #000;
+padding: 5px 15px;
+}
+
+
+</STYLE>
+<BODY>
+
+
+<!-- RUN INFORMATION -->
+
+<%
+def job_name = build.environment.get("JOB_NAME")
+def env_file = "/var/lib/jenkins/jobs/" + job_name + "/builds/" + build.id + "/archive/env.txt"
+def env_file_object = new File(env_file)
+def description = "", rerunURL="", products ="", target_component="", target_role="", triggerurl="", provisionurl="", runtesturl="", teardownurl="", trigger="", polarionurls=[], polarionanchors=[], is_job_subscribed="", tests_repo="", tests_branch=""
+def product_configuration = ""
+def scenario_doc = ""
+def extra_pkgs = ""
+
+if(env_file_object.exists()) {
+    env_file_object.eachLine { line ->
+        if (line.tokenize("=")[0]=="PITinfo_Description"){
+            description=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="PITinfo_ScenarioDoc"){
+            scenario_doc=line.tokenize("=")[1]
+        }
+
+        if (line.tokenize("=")[0]=="PITinfo_ExtraPkgs"){
+            extra_pkgs=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="PITinfo_Products"){
+            products=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="PITinfo_TargetComponent"){
+            target_component=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="PITinfo_TargetRole"){
+            target_role=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="PITtriggerURL"){
+            triggerurl=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="PITprovisionURL"){
+            provisionurl=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="PITruntestURL"){
+            runtesturl=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="PITteardownURL"){
+            teardownurl=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="PITtrigger"){
+            trigger=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="tests_repo"){
+            tests_repo=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="tests_branch"){
+            tests_branch=line.tokenize("=")[1]
+        }
+        if (line.tokenize("=")[0]=="rerunURL"){
+            rerunURL=line.substring(line.indexOf('=')+1)
+        }
+        if (line.tokenize("=")[0].startsWith("PITpolarionURL_")){
+            polarionurls[line.split("=",2)[0].split("_",2)[1].toInteger() - 1]=line.split("=",2)[1]
+        }
+        if (line.tokenize("=")[0].startsWith("PITpolarionAnchor_")){
+            polarionanchors[line.split("=",2)[0].split("_",2)[1].toInteger() - 1]=line.split("=",2)[1]
+        }
+        if (line.tokenize("=")[0]=="isjobsubscribed"){
+        	is_job_subscribed=line.tokenize("=")[1].toInteger()
+        }
+        if (line.tokenize("=")[0].startsWith("PIT_") && line.tokenize("=")[0].contains("Product_Configuration")){
+        	if (line.split("=",2)[1] == null || line.split("=",2)[1] == ""){
+        		product_configuration="No configuration done"
+        	} else {
+        		product_configuration=line.split("=",2)[1]
+        	}
+        }
+    }
+
+    if (trigger.contains("Manual")){
+        trigger = trigger + " trigger using: " + target_component
+        }
+    else if(trigger.contains("Trigger")){
+        trigger = trigger + " from: " + target_component
+    }
+    else{
+        trigger = trigger
+    }
+
+}
+
+%>
+
+
+<table width="100%">
+  <tbody><tr><td class="bg1" colspan="2"><b>TEST RUN INFORMATION</b></td></tr>
+  <TR><TD>Description:</TD><TD>${description}</TD></TR>
+
+    <%
+    if (scenario_doc){
+        println"<TR><TD>Scenario Documentation:</TD><TD><A href=" + scenario_doc + ">" + scenario_doc + "</A></TD></TR>"
+    }
+    %>
+
+  <TR><TD>Jenkins runtest job</TD><TD><A href="${runtesturl}"> ${runtesturl} </A></TD></TR>
+  <TR><TD>Date:</TD><TD>${it.timestampString}</TD></TR>
+  <TR><TD>Duration:</TD><TD>${build.durationString}</TD></TR>
+  <TR><TD>Trigger:</TD><TD>${trigger}</TD</TR>
+  <TR><TD>Target Component (Role):</TD><TD>${target_component} (${target_role})</TD></TR>
+
+    <%
+    if (extra_pkgs){
+        println"<TR><TD>Extra Packages Installed:</TD><TD>" + extra_pkgs + "</TD></TR>"
+    }
+    %>
+
+  <TR><TD>Products:</TD><TD>${products}</TD></TR>
+  <TR><TD>Product Configuration:</TD><TD>${product_configuration}</TD></TR>
+
+<%
+  if(is_job_subscribed == 1){
+  }
+  else{
+      if(rerunURL){
+          println"<TR><TD>To Run Again:</TD><TD><A href=" + rerunURL + ">Click Here to Re-run</A></TD></TR>"
+      }
+      else{
+          println"<TR><TD>To Run Again:</TD><TD></TD></TR>"
+      }
+  }
+%>
+
+</tbody></TABLE><BR/>
+
+
+<!-- JUnit TEMPLATE -->
+
+<%
+def junitResultList = it.JUnitTestResult
+if (junitResultList.size() > 0) { %>
+  <TABLE width="100%">
+    <TR><TD class="bg1" colspan="2"><B>TEST RESULTS</B></TD></TR>
+    <% for (int i = 0; i < polarionurls.size(); i++) { %>
+      <TR><TD>Polarion Run ${i + 1}: <A href="${polarionurls[i]}">${polarionanchors[i]}</A></TD></TR>
+    <% } %>
+
+
+    <TR><TD>Full Run Details: <A href="${rooturl}${build.url}testReport/">Xunit Results</A></TD></TR>
+    <% it.JUnitTestResult.each{ junitResult -> %>
+      <TR><TD colspan="2"> Failed: ${junitResult.getFailCount()} test(s), Passed: ${junitResult.getPassCount()} test(s), Skipped: ${junitResult.getSkipCount()} test(s), Total: ${junitResult.getPassCount()+junitResult.getFailCount()+junitResult.getSkipCount()} test(s)</TD></TR>
+      <% junitResult.getChildren().each { packageResult -> %>
+        <% packageResult.getFailedTests().each{ failed_test -> %>
+          <TR bgcolor="white"><TD class="test_failed" colspan="2"><B><li>Failed: ${failed_test.getFullName()} </li></B></TD></TR>
+        <% }
+      }
+      previousJunitResult = junitResult.getPreviousResult()
+      if (previousJunitResult != null) {
+         def failedDiff = junitResult.getFailCount() - previousJunitResult.getFailCount()
+         def totalDiff = junitResult.getPassCount()+junitResult.getFailCount()+junitResult.getSkipCount() - previousJunitResult.getPassCount()-previousJunitResult.getFailCount()-previousJunitResult.getSkipCount()
+      %>
+        <TR bgcolor="white"><TD colspan="2">Changes since last build: ${failedDiff} regressions, ${totalDiff} new tests </TD></TR>
+      <% }
+    }
+
+} %>
+  </TABLE>
+<BR/>
+
+<!-- ARTIFACTS -->
+<% def artifacts = build.artifacts
+
+def artifacts2 = []
+artifacts.each() { f ->
+    if (!(f.toString().trim() == "resourcelist.txt" || f.toString().trim() == "env.txt" ||
+          f.toString().trim() == "resourcelist2.txt" || f.toString().trim() == "final_resources.txt")) {
+        artifacts2.add(f.toString().trim())
+    }
+}
+
+if(artifacts2 != null && artifacts2.size() > 0) { %>
+  <TABLE width="100%">
+    <TR><TD class="bg1" colspan="2"><B>TEST RUN DETAILS</B></TD></TR>
+    <%
+    if (tests_repo){
+        println"<TR><TD>Test Repo: </TD><TD>" + tests_repo + "</TD></TR>"
+    }
+    if (tests_branch.length() > 0){
+        println"<TR><TD>Test Branch: </TD><TD>" + tests_branch + "</TD></TR><BR/>"
+    }
+
+    %>
+
+
+    <TR>
+      <TD>
+<%
+
+def prev=""
+artifacts2.sort().each() { f ->
+    if (f.toString().trim().contains("-")){
+        if (prev != f.toString().trim().tokenize("-")[0,1]) {
+            println"</br>"
+        }
+    }
+    else {
+        if (prev != "") {
+            println"</br>"
+        }
+    }
+    if (!(f.toString().trim() == "resourcelist.txt" || f.toString().trim() == "env.txt")) {
+       println"<li>"
+       println"<a href='" + rooturl + build.url + "artifact/" + f + "'>" + f + "</a>"
+       println"</li>"
+       if (f.toString().trim().contains("-")){
+           prev=f.toString().trim().tokenize("-")[0,1]
+       }
+       else {
+           prev=""
+       }
+    }
+}
+
+%>
+
+      </TD>
+    </TR>
+  </TABLE>
+<BR/>
+<% } %>
+
+
+<!-- RESOURCE INFO -->
+
+<table width="100%">
+<tbody><tr><td class="bg1" colspan="42"><b>RESOURCE INFO</b></td></tr>
+</tbdody>
+</table><BR/>
+
+<table border="3" width="100%">
+<tbody>
+
+<%
+def index = 1
+def resource_file = "/var/lib/jenkins/jobs/" + job_name + "/builds/" + build.id + "/archive/final_resources.txt"
+def original_res_file = "/var/lib/jenkins/jobs/" + job_name + "/builds/" + build.id + "/archive/resourcelist.txt"
+
+def resources_file = new File(resource_file)
+def original_res_File = new File(original_res_file)
+
+if(resources_file.exists()){
+    resources_file.eachLine { line ->
+        println"<tr>"
+        if (index == 1){
+            line.split(",").each { element ->
+                println"<td class='bg1' align='center'>" + element + "</td>"
+            }
+        }
+        else {
+            line.split(",").each { element ->
+                if (element.contains("=>")) {
+                    println"<td align='center' bgcolor='ffff66'>" + element + "</td>"
+                }
+                else {
+                    println"<td align='center'>" + element + "</td>"
+                }
+            }
+        }
+        println"</tr>"
+        index += 1
+    }
+}
+else if(original_res_File.exists()){
+    original_res_File.eachLine { line ->
+        println"<tr>"
+        if (index == 1){
+            line.split(",").each { element ->
+                println"<td class='bg1' align='center'>" + element + "</td>"
+            }
+        }
+        else {
+            line.split(",").each { element ->
+                println"<td align='center'>" + element + "</td>"
+            }
+        }
+        println"</tr>"
+        index += 1
+    }
+}
+
+%>
+</TABLE>
+<dl>
+<table>
+  <tr>
+    <td bgcolor='ffff66'>yellow background  </td>
+    <td>     </td>
+    <td>  Resource information changed from provisioning to test execution.</td>
+  </tr>
+</table>
+</dl>
+
+
+
+<TABLE width="100%">
+  <TR><TD class="bg1" colspan="2"><B>TECHNICAL DETAILS</B></TD></TR>
+
+<%
+if(env_file_object.exists()) {
+    env_file_object.eachLine { line ->
+        if (line.tokenize("=")[0].startsWith("PIT_") && !line.tokenize("=")[0].contains("Product_Configuration")){
+            println"<tr>"
+            println"<td>" + line.tokenize("=")[0].replaceAll("PIT_", "").replaceAll("_", " ")  + "</td>"
+            println"<td>" + line.split("=",2)[1] +  "</td>"
+            println"</tr>"
+        }
+    }
+}
+
+%>
+</TABLE><br>
+
+<table width="100%">
+<tbody><tr><td class="bg1" colspan="42"><b>ASSOCIATED JOBS</b></td></tr>
+</tbody></table>
+
+<div class="bubble"><a href="${triggerurl}"><h4>Trigger</h4></a></div>
+<div class="bubble"><a href="${provisionurl}"><h4>Provision</h4></a></div>
+<div class="bubble"><a href="${runtesturl}"><h4>Run Test</h4></a></div>
+<div class="bubble"><a href="${teardownurl}"><h4>Tear Down</h4></a></div>
+
+<br/>
+
+<P>
+If you have any questions about this report please contact:
+  <a href="mailto:qe-pit@redhat.com?" target="_top">qe-pit@redhat.com</a>
+</P>
+
+<!-- CONSOLE OUTPUT -->
+<% if(build.result==hudson.model.Result.FAILURE) { %>
+<TABLE width="100%" cellpadding="0" cellspacing="0">
+<TR><TD class="bg1"><B>CONSOLE OUTPUT</B></TD></TR>
+</table>
+
+<label for="show"><span>show</span></label><input type=radio id="show" checked="checked" name="group">
+<label for="hide"><span>hide</span></label><input type=radio id="hide" name="group">
+
+<div id="console">
+<table cellpadding="0" cellspacing="0" width="100%">
+
+
+<tr><td class="console">
+<% build.getLog(100).each() { line -> %>
+</td></tr>
+<TR><TD class="console">${org.apache.commons.lang.StringEscapeUtils.escapeHtml(line)}</TD></TR>
+<% } %>
+</TABLE>
+</DIV>
+<BR/>
+<% } %>
+
+</BODY>

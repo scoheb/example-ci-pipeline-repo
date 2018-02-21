@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flow-definition plugin="workflow-job@2.10">
+  <actions/>
+  <description>Downstream/Internal Continuous Integration (xCI) Testing Pipeline</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <io.fabric8.jenkins.openshiftsync.BuildConfigProjectProperty plugin="openshift-sync@0.1.16">
+      <uid/>
+      <namespace/>
+      <name/>
+      <resourceVersion/>
+    </io.fabric8.jenkins.openshiftsync.BuildConfigProjectProperty>
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class="hudson.tasks.LogRotator">
+        <daysToKeep>-1</daysToKeep>
+        <numToKeep>2</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty/>
+    <org.jenkinsci.plugins.ZMQEventPublisher.HudsonNotificationProperty plugin="zmq-event-publisher@0.0.5">
+      <enabled>false</enabled>
+    </org.jenkinsci.plugins.ZMQEventPublisher.HudsonNotificationProperty>
+    <com.sonyericsson.rebuild.RebuildSettings plugin="rebuild@1.25">
+      <autoRebuild>false</autoRebuild>
+      <rebuildDisabled>false</rebuildDisabled>
+    </com.sonyericsson.rebuild.RebuildSettings>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>CI_MESSAGE</name>
+          <description>CI Message that triggered the test</description>
+          <defaultValue/>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>FED_MESSAGE</name>
+          <description>Fake FedMsg to simulate getting a live message off of the FedMsg bus (used for testing)</description>
+          <defaultValue>{"CI_TYPE":"custom","build_id":"477","status":"success","username":"fedora-atomic","compose_url":"http://artifacts.ci.centos.org/artifacts/fedora-atomic/f27/ostree","rev":"a1981d44032b2452ebcf93e2f1a62dfd2565f9b1","message-content":"","build_url":"Testing","namespace":"modules","CI_NAME":"ci-pipeline-2-0","image_name":"fedora-atomic-27.244","repo":"dnf","compose_rev":"0a4cb4262d4fcb91f3bc85b4d47d8cd8e2ce288e67548f49986e9b41dbfd7858","topic":"org.centos.prod.ci.pipeline.image.test.smoke.complete","image_url":"fedora-atomic-27.244.qcow2","branch":"f27","type":"qcow2","test_guidance":"","ref":"fedora/f27/x86_64/atomic-host"}</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>GIT_BRANCH</name>
+          <description>Git branch to pull the support code from (git repo: https://gitlab.cee.redhat.com/Feuerkasten/xCI-tests.git)</description>
+          <defaultValue>stage</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>PROVISIONER_HOST</name>
+          <description>The provisioner host to submit system requests to.</description>
+          <defaultValue>pit-carbon-stage.rhev-ci-vms.eng.rdu2.redhat.com</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>CONTAINER_VALIDATION_IMAGE_TAG</name>
+          <description>Container validation image tag.</description>
+          <defaultValue>latest</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>LINCHPIN_PROVISIONER_IMAGE_TAG</name>
+          <description>LinchPin provisioner image tag.</description>
+          <defaultValue>latest</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>CARBON_PROVISIONER_IMAGE_TAG</name>
+          <description>Carbon provisioner image tag.</description>
+          <defaultValue>latest</defaultValue>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers/>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps@2.33">
+    <scm class="hudson.plugins.git.GitSCM" plugin="git@3.3.0">
+      <configVersion>2</configVersion>
+      <userRemoteConfigs>
+        <hudson.plugins.git.UserRemoteConfig>
+          <url>https://gitlab.cee.redhat.com/Feuerkasten/xCI-tests.git</url>
+        </hudson.plugins.git.UserRemoteConfig>
+      </userRemoteConfigs>
+      <branches>
+        <hudson.plugins.git.BranchSpec>
+          <name>*/stage</name>
+        </hudson.plugins.git.BranchSpec>
+      </branches>
+      <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+      <submoduleCfg class="list"/>
+      <extensions/>
+    </scm>
+    <scriptPath>xCI_test_code/Jenkinsfile</scriptPath>
+    <lightweight>true</lightweight>
+  </definition>
+  <triggers/>
+</flow-definition>

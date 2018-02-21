@@ -1,0 +1,77 @@
+FROM: https://web.archive.org/web/20160403100211/https://metabrot.rocho.org/jan/selfsign.html
+
+# Create self signed cert for testing (no root CA):
+
+ 1063  openssl genrsa -des3 -out test.key 4096
+ 1066  openssl x509 -req -days 365 -in test_server.csr -signkey test.key -out test.crt
+# Make a server.key which doesn't prompt for a password (required for OpenShift)
+ 1067  openssl rsa -in test.key -out test.key.insecure
+ 1069  mv test.key test.key.secure
+ 1070  mv test.key.insecure test.key
+
+# Create a personal Root CA and a signed cert:
+
+ 1078  openssl genrsa -des3 -out test_root_ca.key 4096
+ 1080  openssl req -new -x509 -days 365 -key test_root_ca.key -out test_root_ca.crt
+ 1082  openssl genrsa -des3 -out test_server.key 4096
+ 1084  openssl req -new -key test_server.key -out test_server.csr
+ 1088  openssl x509 -req -days 365 -in test_server.csr -CA test_root_ca.crt -CAkey test_root_ca.key -set_serial 01 -out test_server.crt
+
+# View the contents of the certs:
+
+ 1092  openssl rsa -noout -text -in test_server.key
+ 1093  openssl req -noout -text -in test_server.csr
+ 1094  openssl rsa -noout -text -in test_root_ca.key
+ 1095  openssl x509 -noout -text -in test_root_ca.crt
+# Make a server.key which doesn't prompt for a password (required for OpenShift)
+ 1097  openssl rsa -in test_server.key -out test_server.key.insecure
+ 1098  mv test_server.key test_server.key.secure
+ 1099  mv test_server.key.insecure test_server.key
+
+
+Info from 'oc adm ca -h' command:
+Manage certificates and keys
+
+Usage:
+  oc adm ca [options]
+
+Available Commands:
+  create-key-pair     Create a public/private key pair
+  create-master-certs Create certificates and keys for a master
+  create-server-cert  Create a signed server certificate and key
+  create-signer-cert  Create a signer (certificate authority/CA) certificate and key
+  decrypt             Decrypt data encrypted with "oc adm ca encrypt"
+  encrypt             Encrypt data with AES-256-CBC encryption
+
+Use "oc adm <command> --help" for more information about a given command.
+Use "oc adm options" for a list of global command-line options (applies to all commands).
+[cbeer@cbeer certificates]$ oc adm ca create-server-cert -h
+Create a key and server certificate 
+
+Create a key and server certificate valid for the specified hostnames, signed by the specified CA. These are useful for
+securing infrastructure components such as the router, authentication server, etc. 
+
+Example: Creating a secure router certificate. 
+
+  CA=openshift.local.config/master
+  oc adm ca create-server-cert --signer-cert=$CA/ca.crt \
+            --signer-key=$CA/ca.key --signer-serial=$CA/ca.serial.txt \
+            --hostnames='*.cloudapps.example.com' \
+            --cert=cloudapps.crt --key=cloudapps.key
+  cat cloudapps.crt cloudapps.key $CA/ca.crt > cloudapps.router.pem
+
+Usage:
+  oc adm ca create-server-cert [options]
+
+Options:
+      --cert='': The certificate file. Choose a name that indicates what the service is.
+      --hostnames=[]: Every hostname or IP you want server certs to be valid for. Comma delimited list
+      --key='': The key file. Choose a name that indicates what the service is.
+      --overwrite=true: Overwrite existing cert files if found.  If false, any existing file will be left as-is.
+      --signer-cert='openshift.local.config/master/ca.crt': The certificate file.
+      --signer-key='openshift.local.config/master/ca.key': The key file.
+      --signer-serial='openshift.local.config/master/ca.serial.txt': The serial file that keeps track of how many certs
+have been signed.
+
+Use "oc adm options" for a list of global command-line options (applies to all commands).
+

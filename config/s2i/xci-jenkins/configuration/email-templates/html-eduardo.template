@@ -1,0 +1,712 @@
+<!--
+	groovy template for jenkins email-ext-plugin
+	for mock/static version see html-eduardo.html
+
+	helpul links:
+	http://javadoc.jenkins-ci.org/?hudson/model/Job.html
+	http://javadoc.jenkins-ci.org/hudson/tasks/junit/CaseResult.html
+-->
+
+<!-- CSS -->
+<STYLE>
+a{color:#4a72af}
+body{background-color:#e4e4e4;font-family:"Lucida Grande","Lucida Sans","Lucida Sans Unicode",sans-serif}
+body,p{margin:0;padding:0}
+img{display:block}
+h1,h2,h3,h4,h5,h6{margin:0 0 .8em 0}
+h3{font-size:28px;color:#444!important;}
+h4{font-size:22px;color:#4a72af!important;}
+h5{font-size:18px;color:#444!important;}
+p{font-size:13px;color:#444!important;line-height:1.5}
+ol li img{display:inline;height:20px}
+/*div styles*/
+.content{min-width:600px;max-width:1400px;background-color:white;margin-left:auto; margin-right:auto;}
+.round_border{margin-bottom:5px;-webkit-border-radius:6px;-moz-border-radius:6px;border-radius:6px;margin-top:0;font-size:14px;padding:6px;border:1px solid #ccc}
+.success{color:green}
+.failure{color:red}
+.result_success{font-size:18px;font-weight:bold;color:green;}
+.result_failure{font-size:18px;font-weight:bold;color:red;}
+.section_title{font-size:16px;font-weight:bold;}
+.main img{width:38px;margin-right:16px;height:38px}
+.main table{font-size:14px;}
+.main table th{text-align:left;}
+.bottom-message{width:720px;cellpadding:5px;cellspacing:0px}
+.bottom-message .message{font-size:13px;color:#676666;line-height:18px;text-align:center;}
+img.logo{width: 200px; display:inline}
+.changed{ border-bottom: none;background-color:#ffff66!important;}
+.datagrid table { border-collapse: collapse; text-align: left; width: 100%; } .datagrid {font: normal 12px/150% Arial, Helvetica, sans-serif; background: #fff; overflow: hidden; border: 1px solid #8C8C8C; -webkit-border-radius: 7px; -moz-border-radius: 7px; border-radius: 7px; }.datagrid table td, .datagrid table th { padding: 1px 5px; }.datagrid table thead th {background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #8C8C8C), color-stop(1, #7D7D7D) );background:-moz-linear-gradient( center top, #8C8C8C 5%, #7D7D7D 100% );filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#8C8C8C', endColorstr='#7D7D7D');background-color:#8C8C8C; color:#FFFFFF; font-size: 15px; font-weight: bold; border-left: 2px solid #A3A3A3; } .datagrid table thead th:first-child { border: none; }.datagrid table tbody td { color: #7D7D7D; border-left: 1px solid #DBDBDB;font-size: 12px;font-weight: normal; }.datagrid table tbody .alt td { background: #EBEBEB; color: #7D7D7D; }.datagrid table tbody td:first-child { border-left: none; }.datagrid table tbody tr:last-child td { border-bottom: none; }
+.datagrid_failed table { border-collapse: collapse; text-align: left; width: 100%; } .datagrid_failed {font: normal 12px/150% Arial, Helvetica, sans-serif; background: #fff; overflow: hidden; border: 1px solid #991821; -webkit-border-radius: 3px; -moz-border-radius: 3px; border-radius: 3px; }.datagrid_failed table td, .datagrid_failed table th { padding: 3px 10px; }.datagrid_failed table thead th {background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #991821), color-stop(1, #80141C) );background:-moz-linear-gradient( center top, #991821 5%, #80141C 100% );filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#991821', endColorstr='#80141C');background-color:#991821; color:#FFFFFF; font-size: 15px; font-weight: bold; border-left: 1px solid #B01C26; } .datagrid_failed table thead th:first-child { border: none; }.datagrid_failed table tbody td { color: #80141C; border-left: 1px solid #ECE2E2;font-size: 12px;font-weight: normal; }.datagrid_failed table tbody .alt td { background: #ECE2E2; color: #80141C; }.datagrid_failed table tbody td:first-child { border-left: none; }.datagrid_failed table tbody tr:last-child td { border-bottom: none; }
+img.chart{width: 400px; height:200px; display:block; margin-left:auto; margin-right:auto;}
+</STYLE>
+
+<!-- Groovy Script -->
+
+<%
+// Import extra packages
+import groovy.json.JsonSlurper
+%>
+
+<%
+// Common Objects and Variables
+
+// JENKINS
+def jenkins = hudson.model.Hudson.instance
+def jenkinsURL = jenkins.rootUrl
+
+// RUNTEST JOB
+def jobRuntestName = build.parent.name
+def buildRuntestResult = build.result
+def buildRuntestDuration = build.durationString
+def buildRuntestNumber = build.number
+def buildRuntestURL = "${jenkinsURL}job/$jobRuntestName/$buildRuntestNumber/testReport/"
+def buildRunTestArtifactURL = "${jenkinsURL}job/$jobRuntestName/$buildRuntestNumber/artifact/"
+def buildRuntestTimestamp = it.timestampString
+//def buildRuntestBuildCause = build.cause
+def buildRunTestChart = "${jenkinsURL}job/$jobRuntestName/test/trend"
+def buildRunTestResultTotal = null
+def buildRunTestResultPassed = null
+def buildRunTestResultFailed = null
+def buildRunTestResultSkipped = null
+def buildRuntestTResult = null
+def buildRunTestPvResultTotal = null
+def buildRunTestPvResultFailed = null
+def buildRunTestPvResultSkipped = null
+def buildRunTestPvResultPassed = null
+def buildRunTestFailedDiff = null
+def buildRunTestTotalDiff = null
+def buildRunTestArtifacts = []
+
+// Get summary for Test Result executed by this job/build 
+if(build.testResultAction){
+	buildRuntestTResult = build.testResultAction
+	buildRuntestTResult.each{ rs ->
+		// Current Test Result
+		buildRunTestResultTotal = rs.getTotalCount()
+	    buildRunTestResultFailed = rs.getFailCount()
+	    buildRunTestResultSkipped = rs.getSkipCount()
+	    buildRunTestResultPassed = (rs.getTotalCount() - rs.getFailCount() - rs.getSkipCount())
+		
+		if(rs.getPreviousResult()){
+			// Previous Test Result
+	      	buildRunTestPvResultTotal = rs.getPreviousResult().getTotalCount()
+		    buildRunTestPvResultFailed = rs.getPreviousResult().getFailCount()
+		    buildRunTestPvResultSkipped = rs.getPreviousResult().getSkipCount()
+		    buildRunTestPvResultPassed = (rs.getPreviousResult().getTotalCount() - rs.getPreviousResult().getFailCount() - rs.getPreviousResult().getSkipCount())
+		    // Get Delta between Current and Previous
+    		buildRunTestFailedDiff = (buildRunTestResultFailed - buildRunTestPvResultFailed)
+    		buildRunTestTotalDiff = (buildRunTestResultPassed + buildRunTestResultFailed + buildRunTestResultSkipped) - (buildRunTestPvResultPassed - buildRunTestPvResultFailed - buildRunTestPvResultSkipped)
+	    }	    	    
+	}	
+}
+
+def pit_ansibleConfig = build.environment.get("ANSIBLE_CONFIG")
+def pit_ansibleVerbose = build.environment.get("ANSIBLE_VERBOSITY")
+def pit_virtualenv = build.environment.get("VIRTUAL_ENV")
+
+// RESOURCE SYSTEM files (original and final)
+def resource_file = "/var/lib/jenkins/jobs/" + jobRuntestName + "/builds/" + buildRuntestNumber + "/archive/final_resources.txt"
+def original_res_file = "/var/lib/jenkins/jobs/" + jobRuntestName + "/builds/" + buildRuntestNumber + "/archive/resourcelist.txt"		// Maybe we dont need this anymore
+def resources_file = new File(resource_file)
+def original_res_File = new File(original_res_file)
+
+// PROVISION JOB
+def varJobProvision = build.environment.get("PROVISION_JOB")
+def varJobProvisionnoTs = varJobProvision.replaceAll("/\\z","")			//Remove trailling slash from url
+def String provisionNameRaw = varJobProvisionnoTs.findAll(/(PIT-.*\/)/)
+def provisionName = provisionNameRaw.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("/","")
+def String _provisionNumber = varJobProvisionnoTs.findAll(/(?!.*\/).+/)
+def provisionNumber = _provisionNumber.replaceAll("\\[", "").replaceAll("\\]", "")
+def jobProvisionObj = jenkins.getJob(provisionName)
+def jobProvisionName = jobProvisionObj.name
+def buildProvisionObj = jobProvisionObj.getBuild(provisionNumber)
+def buildProvisionNumber = provisionNumber
+def buildProvisionDuration = buildProvisionObj.durationString
+def buildProvisionResult = buildProvisionObj.result
+def buildProvisionURL = "${jenkinsURL}job/$jobProvisionName/$buildProvisionNumber/testReport/"
+def buildProvisionTimestamp = buildProvisionObj.time
+def buildProvisionBuildCause = buildProvisionObj.environment.get("BUILD_CAUSE")
+def buildCitype = buildProvisionObj.environment.get("CI_TYPE")
+
+// TRIGGER JOB
+def varJobTrigger = build.environment.get("PITtriggerURL")
+def varJobTriggernoTs = varJobTrigger.replaceAll("/\\z","")			//Remove trailling slash from url
+def String triggerNameRaw = varJobTriggernoTs.findAll(/(PIT-.*\/)/)
+def triggerName = triggerNameRaw.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("/","")
+def String _triggerNumber = varJobTriggernoTs.findAll(/(?!.*\/).+/)
+def triggerNumber = _triggerNumber.replaceAll("\\[", "").replaceAll("\\]", "")
+def jobTriggerObj = jenkins.getJob(triggerName)
+def jobTriggerName = jobTriggerObj.name
+def buildTriggerObj = jobTriggerObj.getBuild(triggerNumber)
+def buildTriggerNumber = triggerNumber
+def buildTriggerDuration = buildTriggerObj.durationString
+def buildTriggerResult = buildTriggerObj.result
+def buildTriggerURL = "${jenkinsURL}job/$jobTriggerName/$buildTriggerNumber/testReport/"
+def buildTriggerTimestamp = buildTriggerObj.time
+def buildTriggerBuildCause = buildTriggerObj.environment.get("BUILD_CAUSE")
+
+// Get scenario_information json from trigger job. it contains 
+// the exactly info as scenario name and scenario description
+// showed by PIT-Dashboard
+def scenario_information = buildTriggerObj.environment.get("scenario_information")
+if(scenario_information != null){
+	inputJSON = new JsonSlurper().parseText(scenario_information)
+	scenario_name = inputJSON.scenario_name
+	scenario_description = inputJSON.scenario_description
+}
+
+// Get CI_MESSAGE from trigger
+def buildTriggerCimessage = buildTriggerObj.environment.get("CI_MESSAGE")
+def buildTriggerCiType =  buildTriggerObj.environment.get("CI_TYPE")
+
+// TEARDOWN JOB
+def varJobTeardown = build.environment.get("PITteardownURL")
+def String teardownNameRaw = varJobTeardown.findAll(/(PIT-.*\/)/)
+def teardownName = teardownNameRaw.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("/","")
+def jobTeardownObj = jenkins.getJob(teardownName)
+def jobTeardownName = jobTeardownObj.name
+def buildTeardownURL = "${jenkinsURL}job/$jobTeardownName/"
+
+// Initialization variables to be used on email template
+def pit_envFile = null
+def pit_env_fileObj = null
+def description = "", rerunURL="", products ="", target_component="", target_role="", triggerurl="", provisionurl="", runtesturl=""
+def teardownurl="", trigger="", polarionurls=[], polarionanchors=[], is_job_subscribed="", tests_repo="", tests_branch=""
+def product_configuration = ""
+def scenario_doc = ""
+def extra_pkgs = ""
+
+%>
+
+<%
+
+// get all artifacts if find env.txt loads to get access to all PIT sys env variables
+// by then end it save a list with all artifacts.
+def artifacts = build.artifacts
+artifacts.each() { f ->
+	// load list with all artifacts files to be used later
+	buildRunTestArtifacts.add(f.toString().trim())
+	// looking for env.txt
+    if (f.toString().trim() == "env.txt"){
+    	pit_envFile = "/var/lib/jenkins/jobs/" + jobRuntestName + "/builds/" + buildRuntestNumber + "/archive/env.txt"
+    	pit_env_fileObj = new File(pit_envFile)
+		pit_env_fileObj.eachLine { line ->
+	        if (line.tokenize("=")[0]=="PITinfo_Description"){
+	            description=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PITinfo_ScenarioDoc"){
+	            scenario_doc=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PITinfo_ExtraPkgs"){
+	            extra_pkgs=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PITinfo_Products"){
+	            products=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PIT_Jenkins_Teardown"){
+	            pit_jenkins_teardown=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PIT_Log_Level"){
+	            pit_loglevel=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PIT_Task_Runner_Cleanup"){
+	            pit_taskrunnerCleanup=line.tokenize("=")[1]
+	        }
+			if (line.tokenize("=")[0]=="PITinfo_TargetComponent"){
+	            target_component=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PITinfo_TargetRole"){
+	            target_role=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PITtriggerURL"){
+	            triggerurl=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PITprovisionURL"){
+	            provisionurl=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PITruntestURL"){
+	            runtesturl=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PITteardownURL"){
+	            teardownurl=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="PITtrigger"){
+	            trigger=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="tests_repo"){
+	            tests_repo=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="tests_branch"){
+	            tests_branch=line.tokenize("=")[1]
+	        }
+	        if (line.tokenize("=")[0]=="rerunURL"){
+	            rerunURL=line.substring(line.indexOf('=')+1)
+	        }
+	        if (line.tokenize("=")[0].startsWith("PITpolarionURL_")){
+	            polarionurls[line.split("=",2)[0].split("_",2)[1].toInteger() - 1]=line.split("=",2)[1]
+	        }
+	        if (line.tokenize("=")[0].startsWith("PITpolarionAnchor_")){
+	            polarionanchors[line.split("=",2)[0].split("_",2)[1].toInteger() - 1]=line.split("=",2)[1]
+	        }
+	        if (line.tokenize("=")[0]=="isjobsubscribed"){
+	        	is_job_subscribed=line.tokenize("=")[1].toInteger()
+	        }
+	        if (line.tokenize("=")[0].startsWith("PIT_") && line.tokenize("=")[0].contains("Product_Configuration")){
+	        	if (line.split("=",2)[1] == null || line.split("=",2)[1] == ""){
+	        		product_configuration="No configuration done"
+	        	} else {
+	        		product_configuration=line.split("=",2)[1]
+	        	}
+	        }
+		}
+	    if (trigger.contains("Manual")){
+	        trigger = trigger + " trigger using: " + target_component
+	        }
+	    else if(trigger.contains("Trigger")){
+	        trigger = trigger + " from: " + target_component
+	    }
+	    else{
+	        trigger = trigger
+	    }
+	}
+}
+%>
+
+<!-- 
+	Building HTML, substituting groovy variables on template  
+	codes with logic should not be into HTML template or less as you can 
+	for this purpose please use the Groovy section above!!! :)
+-->
+
+<BODY>
+	<!-- START: main content -->
+	<div class="content round_border">
+		<!-- START: TEST RUN INFORMATION -->
+		<div class="main round_border">
+			<p class="section_title">TEST RUN INFORMATION</p></br>
+				<table>
+					<tbody>
+						<tr>
+							<th>Result:</th>
+							<td class="result_${buildRuntestResult}">${buildRuntestResult}</td>
+						</tr>
+						<tr>
+							<th>Date of build:</th>
+							<td>${it.timestampString}</td>
+						</tr>
+						<tr>
+							<th>Duration:</th>
+							<td>${buildRuntestDuration}</td>
+						</tr>
+						<tr>
+							<th>Trigger:</th>
+							<td>${trigger}</td>
+						</tr>
+						<% if(buildTriggerCimessage){%>
+						<tr>
+							<th>CI MESSAGE:</th>
+							<td>${buildTriggerCimessage}</td>
+						</tr>
+						<% } %>
+						<tr>
+							<th>Summary:</th>
+							<td>${buildRunTestResultTotal} total of test(s), ${buildRunTestResultSkipped} skipped, <span class="failure">${buildRunTestResultFailed} failed</span> and <span class="success">${buildRunTestResultPassed} passed</span></td>
+						</tr>
+						<tr>
+							<th>Test changes since last build:</th>
+							<td>${buildRunTestFailedDiff} regressions, ${buildRunTestTotalDiff} new tests</td>
+						</tr>
+						<% if(${tests_repo} != ""){%> 
+						<tr>
+							<th>Test repo:</th>
+							<td>${tests_repo}</td>
+						</tr>
+						<% } %>
+						<% if(${tests_branch} != ""){%>
+						<tr>
+							<th>Test branch:</th>
+							<td>${tests_branch}</td>
+						</tr>
+						<% } %>
+						<tr>
+							<th>Target component (Role):</th>
+							<td>${target_component} (${target_role})</td>
+						</tr>
+						<tr>
+							<th>Extra packages installed:</th>
+							<td>${extra_pkgs}</td>
+						</tr>
+					</tbody>
+				</table>
+		</div>
+		<!-- END: TEST RUN INFORMATION -->
+
+		<!-- START: SCENARIO INFORMATION -->
+		<div class="main round_border">
+			<p class="section_title">SCENARIO INFORMATION</p></br>
+			<table>
+				<tbody>
+					<tr>
+						<th>Name:</th>
+						<td>${scenario_name}</td>
+					</tr>
+					<tr>
+						<th>Description:</th>
+						<td>${scenario_description}</td>
+					</tr>
+					<tr>
+						<th>Documentation:</th>
+						<td><a href="${scenario_doc}">${scenario_doc}</a></td>
+					</tr>
+					<tr>
+						<th>Products:</th>
+						<td>${products}</td>
+					</tr>
+					<tr>
+						<th>Product(s) configuration:</th>
+						<td>${product_configuration}</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- END: SCENARIO INFORMATION -->
+
+		<!-- START: SYSTEM RESOURCE INFORMATION -->
+		<div class="main round_border">
+			<p class="section_title">SYSTEM RESOURCE INFORMATION</p></br>
+				<!-- resources table -->
+				<div class="datagrid">
+					<table>
+						<thead>
+							<tr><th>PRODUCT</th><th>PRODUCT VER</th><th>ROLE</th><th>IP</th><th>TYPE</th><th>OS</th><th>OS VER</th><th>OS ARCH</th><th>OS VAR</th><th>KERNEL</th></tr>
+						</thead>
+						<tbody>
+							<% 	
+								def index = 1
+								if(resources_file.exists()){
+								    resources_file.eachLine { line -> 
+							
+									if(index % 2 == 0){
+							%>
+									<tr>
+							<%
+								}else{
+							%>
+									<tr class="alt">
+							<%
+								}
+								        if (index > 1){
+								            line.split(",").each { element ->
+								                if (element.contains("=>")) {
+							%>
+								                    <td class="changed">${element}</td>
+							<%
+								                }
+								                else {
+							%>
+								                    <td>${element}</td>
+							<%								                
+								                }
+								            }
+								        }
+							%>
+									</tr>
+							<%
+								        index += 1
+								    }
+								}else if(original_res_File.exists()){
+								    original_res_File.eachLine { line ->
+							%>
+								    <tr>
+							<%
+								        if(index > 1){
+								            line.split(",").each { element ->
+							%>
+								                <td>${element}</td>
+							<%
+								            }
+								        }
+							%>
+								    </tr>
+							<%
+								    index += 1
+									}
+								}
+							%>						
+						</tbody>
+					</table>
+				</div>
+				<!-- resources table -->
+			</br>
+			<table>
+				<tbody>
+					<tr>
+						<th>Target component (Role):</th>
+						<td>${target_component} (${target_role})</td>
+					</tr>
+					<tr>
+						<th>Extra packages installed:</th>
+						<td>${extra_pkgs}</td>
+					</tr>
+					<tr>
+						<th class="changed">System changed:</th>
+						<td>Resource information changed from provisioning to test execution</td>
+					</tr>
+				</tbody>
+			</table>
+
+		</div>
+		<!-- END: SYSTEM RESOURCE INFORMATION -->
+
+
+		<!-- START: TEST RUN DETAILS -->
+		<div class="main round_border">
+			<p class="section_title">TEST RUN DETAILS</p></br>
+			<table>
+				<tbody>
+					<tr>
+						<th>Summary:</th>
+						<td>${buildRunTestResultTotal} total of test(s), ${buildRunTestResultSkipped} skipped, <span class="failure">${buildRunTestResultFailed} failed</span> and <span class="success">${buildRunTestResultPassed} passed</span></td>
+					</tr>
+					<tr>
+						<th>Test changes since last build::</th>
+						<td>${buildRunTestFailedDiff} regressions, ${buildRunTestTotalDiff} new tests</td>
+					</tr>
+					<% if(${tests_repo} != ""){%> 
+					<tr>
+						<th>Test repo:</th>
+						<td>${tests_repo}</td>
+					</tr>
+					<% } %>
+					<% if(${tests_branch} != ""){%>
+					<tr>
+						<th>Test branch:</th>
+						<td>${tests_branch}</td>
+					</tr>
+					<% } %>
+					<tr>
+						<th>Jenkins test Xunit results:</th>
+						<td><a href="${buildRuntestURL}">${buildRuntestURL}</a></td>
+					</tr>
+				</tbody>
+			</table>
+
+			<!-- Chart test result history -->
+			<img src="${buildRunTestChart}" class="chart" />
+
+			<!-- List tests xunit that failed -->
+			<%
+				if (buildRunTestResultFailed > 0) { 
+			%>
+				<table>
+					<tbody class="failed">
+						<tr><th><span class="failure">${buildRunTestResultFailed}</span> TESTS FAILED</th></tr>
+					</tbody>
+				</table>
+				<p>Consecutive failures column means number of consecutive builds (including this) that this test case has been failing</p>				
+			<%
+				}
+			%>
+
+				<div class="datagrid_failed">
+					<%
+						if (buildRunTestResultFailed > 0) { 
+					%>
+						<table>
+							<thead>
+								<tr align="center"><th>TEST NAME</th><th>DURATION</th><th>FAILED SINCE BUILD #</th><th>CONSECUTIVE FAILURES</th></tr>
+							</thead>
+							<tbody>
+					<%			
+								int counter = 0
+								buildRuntestTResult.each{ rs ->
+									failedTests = rs.getFailedTests()
+									failedTests.each{ test ->
+										testPackageName = test.getPackageName()
+										testName = test.getFullName() 	//getDisplayName()
+										testDuration = test.getDuration()
+										testFailedSinceBuild = test.getFailedSince()
+						    			testAge = test.getAge() //Gets the number of consecutive builds (including this) that this test case has been failing.
+									
+										if(counter %2 == 0){
+					%>
+										<tr class="alt">
+					<%									
+										}else{
+					%>
+										<tr>
+					<%				
+										}
+										counter += 1
+					%>
+							        		<td>${testName}</td>
+							        		<td>${testDuration}</td>
+											<td>${testFailedSinceBuild}</td>
+											<td>${testAge}</td>			
+							        	</tr>
+					<% 
+									}
+								}
+						}
+					%>
+							</tbody>
+						</table>
+				</div>
+
+		</div>
+		<!-- END: TEST RUN DETAILS -->
+
+		<!-- START: ARTIFACTS -->
+		<div class="main round_border">
+			<p class="section_title">${buildRunTestArtifacts.size} ARTIFACTS</p></br>
+			<!-- List build artifacts -->
+			<% if(buildRunTestArtifacts.size > 0){ %>
+			<div class="datagrid">
+				<table>
+					<tbody>
+							<tr>
+						<% 
+							int count = 0
+							int column = 0
+							buildRunTestArtifacts.each{ artifact ->
+						%>								
+								<td><a href="${buildRunTestArtifactURL}/${artifact}">${artifact}</a></td>
+						<%
+								column += 1
+								if(column == 3){
+						%>
+									</tr>
+						<%			
+									if(count %2 == 0){
+						%>
+										<tr class="alt">
+						<%									
+									}else{
+						%>
+										<tr>
+						<%
+									}
+									column = 0
+								}
+								count += 1 
+							}
+						%>
+					</tbody>
+				</table>
+			</div>
+			<% } %>
+		</div>
+		<!-- END: ARTIFACTS -->
+
+		<!-- START: JENKINS JOBS -->
+		<div class="main round_border">
+			<p class="section_title">JENKINS JOBS</p></br>
+				<!-- Jenkins jobs table -->
+				<div class="datagrid">
+					<table>
+						<thead>
+							<tr><th>TYPE</th><th>JENKINS JOB</th><th>BUILD STATUS</th><th>DURATION</th><th>TIMESTAMP</th><th>URL</th></tr>
+						</thead>
+						<tbody>
+							<% if(jobTriggerName != null){ %>
+							<tr>
+								<td>TRIGGER</td><td>${jobTriggerName}</td><td><span class="${buildTriggerResult}">${buildTriggerResult}</span></td><td>${buildTriggerDuration}</td><td>${buildTriggerTimestamp}</td>
+								<td><a href="${buildTriggerURL}">${buildTriggerURL}</a></td>
+							</tr>
+							<% } %>
+							<% if(jobProvisionName != null){ %>
+							<tr class="alt">
+								<td>PROVISION</td><td>${jobProvisionName}</td><td><span class="${buildProvisionResult}">${buildProvisionResult}</span></td><td>${buildProvisionDuration}</td><td>${buildProvisionTimestamp}</td>
+								<td><a href="${buildProvisionURL}">${buildProvisionURL}</a></td>
+							</tr>
+							<% } %>
+							<% if(jobRuntestName != null){ %>
+							<tr>
+								<td>RUNTEST</td><td>${jobRuntestName}</td><td><span class="${buildRuntestResult}">${buildRuntestResult}</span></td><td>${buildRuntestDuration}</td><td>${buildRuntestTimestamp}</td>
+								<td><a href="${buildRuntestURL}">${buildRuntestURL}</a></td>
+							</tr>
+							<% } %>
+							<% if(jobProvisionName != null){ %>
+							<tr class="alt">
+								<td>TEARDOWN</td><td>${jobTeardownName}</td><td>not available</td><td>not available</td><td>not available</td>
+								<td><a href="${buildTeardownURL}">${buildTeardownURL}</a></td>
+							</tr>
+							<% } %>
+						</tbody>
+					</table>
+				</div>
+				<!-- Jenkins jobs table -->
+		</div>
+		<!-- END: JENKINS JOBS -->
+
+
+		<!-- START: EXTRA INFORMATION FOR DEVEL -->
+		<div class="main round_border">
+			<p class="section_title">EXTRA INFORMATION FOR DEVEL</p></br>
+
+			<table>
+				<tbody>
+					<tr>
+						<th>Run the test again:</th>
+						<td><a href="${rerunURL}">Click here to schedule a re-run with all same parameters</a></td>
+					</tr>
+					<tr>
+						<th>Jenkins jobs teardown:</th>
+						<td>${pit_jenkins_teardown}</td>
+					</tr>
+					<tr>
+						<th>Test log level:</th>
+						<td>${pit_loglevel}</td>
+					</tr>
+					<tr>
+						<th>Task runner:</th>
+						<td>${pit_taskrunnerCleanup}</td>
+					</tr>
+
+					<tr>
+						<th>CI Message:</th>
+						<td>${buildTriggerCimessage}</td>
+					</tr>
+					<tr>
+						<th>CI Type:</th>
+						<td>${buildTriggerCiType}</td>
+					</tr>
+					<tr>
+						<th>Ansible config:</th>
+						<td>${pit_ansibleConfig}</td>
+					</tr>
+					<tr>
+						<th>Ansible verbosity:</th>
+						<td>${pit_ansibleVerbose}</td>
+					</tr>
+					<tr>
+						<th>Python Virtual Env:</th>
+						<td>${pit_virtualenv}</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- END: EXTRA INFORMATION FOR DEVEL -->
+	</div>
+	<!-- END: main content -->
+
+	<!-- START bottom message -->
+    <table class="bottom-message" align="center">
+		<tr>
+			<td>
+            <img class="logo"
+				src="http://pit-dashboard.lab.eng.rdu2.redhat.com/static/images/pit/pit-light_bg.png"/>
+            </td>
+        	<td class="message">You are receiving this email because you
+				have a subscription on PIT-Dashboard</br>
+				<p>
+					<a href="https://url.corp.redhat.com/pit ">Mojo</a> | <a href="https://projects.engineering.redhat.com/projects/PIT/summary/statistics">Jira</a> |
+					<a href="mailto:qe-pit@redhat.com?Subject=${scenario_name}" target="_top">Team email</a> |
+					<a href="#">IRC channel: #PIT</a> | 
+					<a href="http://pit-dashboard.lab.eng.rdu2.redhat.com/">PIT-Dashboard</a>
+				</p>
+			</td>
+		</tr>
+	</table>
+	<!-- END bottom message -->
+
+</BODY>

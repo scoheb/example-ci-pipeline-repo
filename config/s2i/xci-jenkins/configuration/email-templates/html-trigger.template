@@ -1,0 +1,257 @@
+<STYLE>
+BODY, TABLE, TD, TH, P {
+  font-family:Verdana,Helvetica,sans serif;
+  font-size:11px;
+  color:black;
+}
+/*START of JOBS in BOX*/
+.bubble
+{
+display:inline-block;
+margin: 20px;
+position: relative;
+width: 95px;
+height: 60px;
+padding: 0px;
+background: #FEFFFF;
+-webkit-border-radius: 10px;
+-moz-border-radius: 10px;
+border-radius: 10px;
+border: #7FAEBA solid 4px;
+}
+.bubble:after
+{
+content: '';
+position: absolute;
+border-style: solid;
+border-width: 10px 0 10px 17px;
+border-color: transparent #FEFFFF;
+display: block;
+width: 0;
+z-index: 1;
+right: -17px;
+top: 20px;
+}
+.bubble:before
+{
+content: '';
+position: absolute;
+border-style: solid;
+border-width: 13px 0 13px 20px;
+border-color: transparent #7FAEBA;
+display: block;
+width: 0;
+z-index: 0;
+right: -24px;
+top: 17px;
+}
+h4 {text-align: center;}
+/*END of JOBS in BOX*/
+
+/*START Of Console show|hide*/
+input {display:none;}
+div#console {display:none;margin-left:30px;}
+input#show:checked ~ div#console {display:block;}
+input#hide:checked ~ div#console {display:none;}
+/*END Of Console show|hide*/
+h1 { color:black; }
+h2 { color:black; }
+h3 { color:black; }
+TD.bg1 { color:white; background-color:#5179B5; font-size:120% }
+TD.bg2 { color:white; background-color:#DEDEDF; font-size:110% }
+TD.bg3 { color:white; background-color:#8080FF; }
+TD.test_passed { color:blue; }
+TD.test_failed { color:red; }
+TD.console { font-family:Courier New; }
+</STYLE>
+<BODY>
+
+<TABLE>
+  <TR><TD align="right"><IMG SRC="${rooturl}static/e59dfe28/images/32x32/<%= build.result.toString() == 'SUCCESS' ? "blue.gif" : build.result.toString() == 'FAILURE' ? 'red.gif' : 'yellow.gif' %>" />
+  </TD><TD valign="center"><B style="font-size: 200%;">TRIGGER ${build.result}</B></TD></TR>
+</TABLE><BR/>
+
+<!-- RUN INFORMATION -->
+<TABLE>
+<TR><TD><h3>Job URL:</h3></TD><TD><h3><A href="${rooturl}${build.url}">${rooturl}${build.url}</A></h3></TD></TR>
+
+<%
+def job_name = build.environment.get("JOB_NAME")
+def brew_file = "/var/lib/jenkins/jobs/" + job_name + "/builds/" + build.id + "/archive/brew.txt"
+def brew_file_object = new File(brew_file)
+def image_file = "/var/lib/jenkins/jobs/" + job_name + "/builds/" + build.id + "/archive/composedata.txt"
+def rerun_file = "/var/lib/jenkins/jobs/" + job_name + "/builds/" + build.id + "/archive/rerun.txt"
+def rerunURL = new File(rerun_file).getText('UTF-8')
+def image_file_object = new File(image_file)
+def description = "", products ="", target_component="", target_role="", triggerurl="", provisionurl="", runtesturl="", teardownurl="", trigger="", brewdata="", imagedata=""
+
+println "<TR><TD><h3>Re-Run URL: </h3></TD><TD><h3>" + rerunURL + "</h3></TD></TR>"
+println "</TABLE>"
+
+println "<p>"
+if(brew_file_object.exists()) {
+
+    println "<TABLE width='100%'>"
+    println "<TR><TD class='bg1'><B>BREW Information</B></TD></TR>"
+    println "</TABLE>"
+    brew_file_object.eachLine { line ->
+        if (line.tokenize("=")[0].trim()=="reason"){
+    	    println "<br/><b>Reason for Failure: </b>" + line.tokenize("=")[1].trim() + "<br/>"
+        }
+        if (line.tokenize("=")[0].trim()=="arches"){
+            println "arches: " + line.tokenize("=")[1].trim() + "<br/>"
+            brewdata += "arches:" + line.tokenize("=")[1].trim() + ","
+        }
+        if (line.tokenize("=")[0].trim()=="name"){
+            println "name: " + line.tokenize("=")[1] + "<br/>"
+            brewdata += "name:" + line.tokenize("=")[1] + ","
+        }
+        if (line.tokenize("=")[0].trim()=="nvr"){
+            println "nvr: " + line.tokenize("=")[1] + "<br/>"
+            brewdata += "nvr:" + line.tokenize("=")[1] + ","
+        }
+        if (line.tokenize("=")[0].trim()=="taglist"){
+            println "taglist: " + line.tokenize("=")[1].trim() + "<br/>"
+            brewdata += "taglist:" + line.tokenize("=")[1].trim() + ","
+        }
+
+    }
+    if (brewdata == ""){
+    }
+    else{
+        brewdata = brewdata.substring(0, brewdata.length()-1)
+    }
+    prodjob = build.environment.get("JOB_URL")
+
+    devjob = prodjob.replace("PROD", "DEV")
+    devjob = devjob.replace("prod", "dev")
+    devjob += "build?delay=0sec"
+    println "<br/><b>To manually re-run:</b><br/>"
+    println "<b>Dev Job: </b><a href='" + devjob + "'>" + devjob + "</a><br/>"
+    println "<b>simulatebrew: </b>" + brewdata + "<br/>"
+}
+
+else if(image_file_object.exists()){
+
+    println "<TABLE width='100%'>"
+    println "<TR><TD class='bg1'><B>IMAGE Information</B></TD></TR>"
+    println "</TABLE>"
+
+    image_file_object.eachLine { line ->
+        if (line.tokenize("=")[0].trim()=="reason"){
+            println "<br/><b>Reason for Failure: </b>" + line.tokenize("=")[1].trim() + "<br/>"
+        }
+        if (line.tokenize("=")[0].trim()=="image"){
+            println "image: " + line.tokenize("=")[1].trim() + "<br/>"
+            imagedata += "image:" + line.tokenize("=")[1].trim() + ","
+        }
+        if (line.tokenize("=")[0].trim()=="distro"){
+            println "distro: " + line.tokenize("=")[1] + "<br/>"
+            imagedata += "distro:" + line.tokenize("=")[1] + ","
+        }
+        if (line.tokenize("=")[0].trim()=="variant"){
+            println "variant: " + line.tokenize("=")[1] + "<br/>"
+            imagedata += "variant:" + line.tokenize("=")[1] + ","
+        }
+        if (line.tokenize("=")[0].trim()=="arch"){
+            println "arch: " + line.tokenize("=")[1].trim() + "<br/>"
+            imagedata += "arch:" + line.tokenize("=")[1].trim() + ","
+        }
+        if (line.tokenize("=")[0].trim()=="osname"){
+            println "osname: " + line.tokenize("=")[1].trim() + "<br/>"
+            imagedata += "osname:" + line.tokenize("=")[1].trim() + ","
+        }
+        if (line.tokenize("=")[0].trim()=="majorver"){
+            println "majorver: " + line.tokenize("=")[1].trim() + "<br/>"
+            imagedata += "majorver:" + line.tokenize("=")[1].trim() + ","
+        }
+        if (line.tokenize("=")[0].trim()=="minorver"){
+            println "minorver: " + line.tokenize("=")[1].trim() + "<br/>"
+            imagedata += "minorver:" + line.tokenize("=")[1].trim() + ","
+        }
+
+    }
+    if (imagedata == ""){
+    }
+    else{
+        imagedata = imagedata.substring(0, imagedata.length()-1)
+    }
+    prodjob = build.environment.get("JOB_URL")
+
+    println "<br/><b>To re-run:</b><br/>"
+    println "<b>Prod Job: </b><a href='" + prodjob + "'>" + prodjob + "</a><br/>"
+    println "<b>simulateimage: </b>" + imagedata + "<br/>"
+
+}
+
+println "</p>"
+
+
+%>
+
+
+<% def artifacts = build.artifacts
+
+def artifacts2 = []
+artifacts.each() { f ->
+    if (!(f.toString().trim() == "resourcelist.txt" || f.toString().trim() == "env.txt")) {
+        artifacts2.add(f.toString().trim())
+    }
+}
+
+if(artifacts2 != null && artifacts2.size() > 0) { %>
+  <TABLE width="100%">
+    <TR><TD class="bg1"><B>DETAILS OF TEST SCENARIO TO BE RUN</B></TD></TR>
+    <TR>
+      <TD>
+<%    
+
+def prev=""          
+artifacts2.sort().each() { f ->               
+    if (f.toString().trim().contains("-")){
+        if (prev != f.toString().trim().tokenize("-")[0,1]) {
+        }
+    }
+    else {
+        if (prev != "") {
+        }
+    }
+    if (!(f.toString().trim() == "resourcelist.txt" || f.toString().trim() == "env.txt")) { 
+       println"<li>"
+       println"<a href='" + rooturl + build.url + "artifact/" + f + "'>" + f + "</a>"
+       println"</li>"
+       if (f.toString().trim().contains("-")){
+           prev=f.toString().trim().tokenize("-")[0,1]
+       }
+       else {
+           prev=""
+       }
+    }
+}
+
+%>
+
+      </TD>
+    </TR>
+  </TABLE>
+<BR/>
+<% } %>
+
+
+<!-- CONSOLE OUTPUT -->
+<TABLE width="100%" cellpadding="0" cellspacing="0">
+<TR><TD class="bg1"><B>CONSOLE OUTPUT</B></TD></TR>
+</table>
+
+<table cellpadding="0" cellspacing="0" width="100%">
+
+
+<tr><td class="console">
+<% build.getLog(100).each() { line -> %>
+</td></tr>
+<TR><TD class="console">${org.apache.commons.lang.StringEscapeUtils.escapeHtml(line)}</TD></TR>
+<% } %>
+</TABLE>
+
+
+</BODY>

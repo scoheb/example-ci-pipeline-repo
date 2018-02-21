@@ -1,0 +1,19 @@
+All the plugins listed in the plugins.txt file are coming from the 
+public repo for Jenkins plugins. The Red Hat internal plugin repos are
+split into three locations, which can't be supported by the OpenShift/
+Jenkins S2I code.
+
+Plugins jms-messaging and redhat-ci-plugin are not available from the
+public Jenkins repo, so have been copied here from the Red Hat internal
+repo.
+
+The Red Hat CI Plugin is available for download here:
+  http://ci-ops-jenkins-update-site.rhev-ci-vms.eng.rdu2.redhat.com/update-center/redhat/
+
+The JMS Messaging Plugin is available for download here:
+  https://wiki.jenkins.io/display/JENKINS/JMS+Messaging+Plugin
+
+2018/01/30: Installed versions:
+  Red Hat CI Plugin v1.5.1
+  JMS Messaging Plugin v1.0.31
+  
